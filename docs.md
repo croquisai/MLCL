@@ -4,7 +4,7 @@
 
 #### `Tensor`
 A fundamental class that represents n-dimensional arrays with automatic differentiation capabilities.
-- Supports basic arithmetic operations (+, -, *, /, etc.)
+- Supports basic arithmetic operations (+, -, *, /, etc. (with broadcasting))
 - Tracks gradients for backpropagation when `requires_grad=True`
 - Implements broadcasting for operations between tensors of different shapes
 - Provides shape manipulation methods like `reshape` and `view`
@@ -108,3 +108,24 @@ Stochastic Gradient Descent optimizer with momentum
 - Features:
   - Momentum for faster convergence
   - Gradient clipping to prevent exploding gradients
+
+## HDL Generation
+
+MLCL features a highly experimental HDL generator that can convert a MLCL model into Verilog. (FPGA-friendly architecture!)
+
+To use the HDL generator, you can use the `ModelToHDLPipeline` class.
+
+```python
+from mlcl.nn.layers import Linear
+from mlcl.hdl import ModelToHDLPipeline
+
+model = [
+    Linear(2, 8),
+    Linear(8, 1)
+]
+
+pipeline = ModelToHDLPipeline(output_dir="hdl_out")
+hdl_files = pipeline.convert_model(model, model_name="showcase")
+```
+
+Please note that this is a highly experimental feature and the output may not be fully functional. (Which it probably won't be for a while)

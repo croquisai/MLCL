@@ -44,7 +44,7 @@ model_io.apply("xor_model", new_params)
 h1 = relu(new_layer1.forward(X))
 out = sigmoid(new_layer2.forward(h1))
 
-print("\nPredictions after loading saved model:")
+print("\nPredictions after loading saved model:") # just a test
 print("Input [0, 0] ->", out.data[0][0])
 print("Input [0, 1] ->", out.data[1][0])
 print("Input [1, 0] ->", out.data[2][0])
