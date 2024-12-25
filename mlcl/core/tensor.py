@@ -31,10 +31,8 @@ class Tensor:
         If no dimensions are specified, reverses all dimensions.
         """
         if not dims:
-            # If no dimensions specified, reverse all dimensions
             dims = tuple(range(len(self.shape)-1, -1, -1))
         
-        # Create the transposed data
         new_data = np.transpose(self.data, dims)
         result = Tensor(new_data, requires_grad=self.requires_grad)
         
@@ -42,7 +40,6 @@ class Tensor:
             result.grad = np.transpose(self.grad, dims)
             
             def _backward(grad):
-                # Reverse the transpose operation for gradient
                 reverse_dims = [0] * len(dims)
                 for i, d in enumerate(dims):
                     reverse_dims[d] = i

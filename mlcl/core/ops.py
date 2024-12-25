@@ -36,7 +36,7 @@ class MatMul:
             for i in range(batch_size):
                 a_buf = cl.Buffer(opencl_manager.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=a_2d[i])
                 b_buf = cl.Buffer(opencl_manager.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=b_2d[i])
-                c_buf = cl.Buffer(opencl_manager.ctx, cl.mem_flags.WRITE_ONLY, M * N * 4)  # 4 bytes per float32
+                c_buf = cl.Buffer(opencl_manager.ctx, cl.mem_flags.WRITE_ONLY, M * N * 4)
                 
                 self.program.matmul(
                     opencl_manager.queue, (M, N), None,
@@ -48,7 +48,6 @@ class MatMul:
 
             output = output.reshape(*batch_dims, M, N)
         else:
-            # Original 2D case
             M, K = a.data.shape
             K2, N = b.data.shape
             

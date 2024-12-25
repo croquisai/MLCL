@@ -1,5 +1,6 @@
 from mlcl import Tensor, Linear, sigmoid, relu, BinaryCrossEntropyLoss, SGD, OpenCLManager
 from mlcl.core.model_io import ModelIO
+import time
 
 model_io = ModelIO("saved_models")
 
@@ -15,6 +16,7 @@ optimizer = SGD([layer1.weights, layer1.bias, layer2.weights, layer2.bias],
                momentum=0.9,
                clip_value=1.0)
 
+start_time = time.time()
 for epoch in range(1000):
     h1 = relu(layer1.forward(X))
     out = sigmoid(layer2.forward(h1))
@@ -25,6 +27,8 @@ for epoch in range(1000):
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
+print("Time taken to train:", time.time() - start_time)
+print("Time per epoch:", (time.time() - start_time) / 1000)
 
 print("\nFinal predictions before saving:")
 print("Input [0, 0] ->", out.data[0][0])
