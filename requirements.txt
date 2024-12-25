@@ -1,2 +1,4 @@
 pyopencl
 siphash24
+numba
+numpy
