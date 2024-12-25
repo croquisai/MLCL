@@ -1,5 +1,8 @@
 # MLCL
 
+⚠️ **Warning**: MLCL is currently in early development and is not recommended for production use. The API is highly unstable and may change significantly between versions. Use at your own risk!
+
+
 MLCL is a OpenCL-focused machine learning library with the following design goals:
 - Small install size
 - Easy to use
