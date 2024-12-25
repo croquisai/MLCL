@@ -53,7 +53,7 @@ class Dropout:
         result._backward = _backward
         return result
 
-class BatchNorm1d:
+class BatchNorm1D:
     def __init__(self, num_features, eps=1e-5, momentum=0.1):
         self.num_features = num_features
         self.eps = eps

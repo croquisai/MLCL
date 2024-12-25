@@ -3,3 +3,5 @@ mlcl/nn/__pycache__/
 mlcl/core/__pycache__/
 mlcl.egg-info/
 *.pyc
+
+saved_models/

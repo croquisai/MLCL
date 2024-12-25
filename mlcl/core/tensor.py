@@ -25,6 +25,33 @@ class Tensor:
     def size(self):
         return self.data.size
 
+    def transpose(self, *dims):
+        """
+        Transpose the tensor along the specified dimensions.
+        If no dimensions are specified, reverses all dimensions.
+        """
+        if not dims:
+            # If no dimensions specified, reverse all dimensions
+            dims = tuple(range(len(self.shape)-1, -1, -1))
+        
+        # Create the transposed data
+        new_data = np.transpose(self.data, dims)
+        result = Tensor(new_data, requires_grad=self.requires_grad)
+        
+        if self.requires_grad and self.grad is not None:
+            result.grad = np.transpose(self.grad, dims)
+            
+            def _backward(grad):
+                # Reverse the transpose operation for gradient
+                reverse_dims = [0] * len(dims)
+                for i, d in enumerate(dims):
+                    reverse_dims[d] = i
+                self.backward(np.transpose(grad, reverse_dims))
+            
+            result._backward = _backward
+        
+        return result
+
     def reshape(self, *shape):
         new_data = self.data.reshape(*shape)
         result = Tensor(new_data, requires_grad=self.requires_grad)
@@ -324,3 +351,37 @@ class Tensor:
             
             cl.enqueue_copy(opencl_manager.queue, result, output_buf)
             return Tensor(result, requires_grad=self.requires_grad)
+
+    def softmax(self, dim=-1):
+        if dim < 0:
+            dim = len(self.shape) + dim
+
+        broadcast_shape = list(self.shape)
+        broadcast_shape[dim] = 1
+
+        x_max = self.data.max(axis=dim, keepdims=True)
+        exp_x = np.exp(self.data - x_max)
+
+        softmax_output = exp_x / np.sum(exp_x, axis=dim, keepdims=True)
+        
+        result = Tensor(softmax_output, requires_grad=self.requires_grad)
+        
+        if self.requires_grad:
+            def _backward(grad):
+                s = softmax_output
+                grad_self = s * (grad - (s * grad).sum(axis=dim, keepdims=True))
+                self.backward(grad_self)
+                
+            result._backward = _backward
+            
+        return result
+
+    def masked_fill(self, mask, value):
+        """
+        Fills elements of self tensor with value where mask is True.
+        """
+        if not isinstance(mask, Tensor):
+            mask = Tensor(mask)
+            
+        result = np.where(mask.data, value, self.data)
+        return Tensor(result, requires_grad=self.requires_grad)
