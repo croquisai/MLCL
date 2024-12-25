@@ -377,11 +377,190 @@ class Tensor:
         return result
 
     def masked_fill(self, mask, value):
-        """
-        Fills elements of self tensor with value where mask is True.
-        """
         if not isinstance(mask, Tensor):
             mask = Tensor(mask)
+
+        filled_data = np.where(mask.data, value, self.data)
+        result = Tensor(filled_data, requires_grad=self.requires_grad)
+        
+        if self.requires_grad:
+            def _backward(grad):
+                propagate_mask = (mask.data == 0).astype(np.float32)
+                grad_masked = grad * propagate_mask
+                self.backward(grad_masked)
             
-        result = np.where(mask.data, value, self.data)
+            result._backward = _backward
+            
+        return result
+
+    def __getitem__(self, key):
+        """
+        Get item or slice from tensor.
+        
+        Args:
+            key: Index or slice to access
+            
+        Returns:
+            Tensor containing the selected elements
+        """
+        result = Tensor(self.data[key], requires_grad=self.requires_grad)
+        
+        if self.requires_grad:
+            def _backward(grad):
+                if self.grad is None:
+                    self.grad = np.zeros_like(self.data)
+                self.grad[key] += grad
+            
+            result._backward = _backward
+        
+        return result
+    
+    def __setitem__(self, key, value):
+        """
+        Set item or slice in tensor.
+        
+        Args:
+            key: Index or slice to set
+            value: Value to set
+        """
+        if isinstance(value, Tensor):
+            self.data[key] = value.data
+        else:
+            self.data[key] = value
+
+    def __eq__(self, other):
+        """
+        Element-wise equality comparison.
+        
+        Args:
+            other: Value to compare with
+            
+        Returns:
+            Tensor with boolean values
+        """
+        if isinstance(other, Tensor):
+            other = other.data
+        return Tensor(self.data == other)
+    
+    def __lt__(self, other):
+        """Element-wise less than comparison."""
+        if isinstance(other, Tensor):
+            other = other.data
+        return Tensor(self.data < other)
+    
+    def __le__(self, other):
+        """Element-wise less than or equal comparison."""
+        if isinstance(other, Tensor):
+            other = other.data
+        return Tensor(self.data <= other)
+    
+    def __gt__(self, other):
+        """Element-wise greater than comparison."""
+        if isinstance(other, Tensor):
+            other = other.data
+        return Tensor(self.data > other)
+    
+    def __ge__(self, other):
+        """Element-wise greater than or equal comparison."""
+        if isinstance(other, Tensor):
+            other = other.data
+        return Tensor(self.data >= other)
+
+    def repeat(self, repeats, axis=None):
+        """
+        Repeat elements of the tensor along specified axis.
+        
+        Args:
+            repeats: Number of repetitions for each element
+            axis: Axis along which to repeat values
+            
+        Returns:
+            New tensor with repeated values
+        """
+        result = Tensor(np.repeat(self.data, repeats, axis=axis), requires_grad=self.requires_grad)
+        
+        if self.requires_grad:
+            def _backward(grad):
+                if axis is None:
+                    grad_reshaped = grad.reshape(-1, repeats).sum(axis=1)
+                    grad_reshaped = grad_reshaped.reshape(self.shape)
+                else:
+                    grad_reshaped = grad.reshape(*self.shape[:axis], -1, repeats, *self.shape[axis+1:])
+                    grad_reshaped = grad_reshaped.sum(axis=axis+1)
+                self.backward(grad_reshaped)
+            
+            result._backward = _backward
+        
+        return result
+
+    def max(self, dim=None, keepdim=False):
+        """
+        Return the maximum value along the specified dimension.
+        
+        Args:
+            dim: Dimension along which to find maximum. None means global maximum.
+            keepdim: Whether to keep the reduced dimension as 1
+            
+        Returns:
+            Maximum value(s) as a Tensor
+        """
+        if dim is None:
+            result = np.max(self.data)
+            return Tensor(result, requires_grad=self.requires_grad)
+        
+        result = np.max(self.data, axis=dim, keepdims=keepdim)
         return Tensor(result, requires_grad=self.requires_grad)
+    
+    def sum(self, dim=None, keepdim=False):
+        """
+        Return the sum along the specified dimension.
+        
+        Args:
+            dim: Dimension along which to sum. None means global sum.
+            keepdim: Whether to keep the reduced dimension as 1
+            
+        Returns:
+            Sum value(s) as a Tensor
+        """
+        if dim is None:
+            result = np.sum(self.data)
+            return Tensor(result, requires_grad=self.requires_grad)
+        
+        result = np.sum(self.data, axis=dim, keepdims=keepdim)
+        return Tensor(result, requires_grad=self.requires_grad)
+
+    def min(self, dim=None, keepdim=False):
+        """
+        Return the minimum value along the specified dimension.
+        
+        Args:
+            dim: Dimension along which to find minimum. None means global minimum.
+            keepdim: Whether to keep the reduced dimension as 1
+            
+        Returns:
+            Minimum value(s) as a Tensor
+        """
+        if dim is None:
+            result = np.min(self.data)
+            return Tensor(result, requires_grad=self.requires_grad)
+        
+        result = np.min(self.data, axis=dim, keepdims=keepdim)
+        return Tensor(result, requires_grad=self.requires_grad)
+
+    def copy(self):
+        """
+        Create a copy of the tensor that preserves gradient information.
+        
+        Returns:
+            A new Tensor with the same data and gradient properties
+        """
+        result = Tensor(self.data.copy(), requires_grad=self.requires_grad)
+        if self.requires_grad and self.grad is not None:
+            result.grad = self.grad.copy()
+        
+        if self._backward is not None:
+            def _backward(grad):
+                self.backward(grad)
+            result._backward = _backward
+        
+        return result

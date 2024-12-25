@@ -17,10 +17,10 @@ class Optimizer:
         raise NotImplementedError
 
 class SGD(Optimizer):
-    def __init__(self, parameters: List[Tensor], learning_rate: float = 0.01, 
+    def __init__(self, parameters: List[Tensor], lr: float = 0.01, 
                  momentum: float = 0.9, clip_value: float = 1.0):
         super().__init__(parameters)
-        self.learning_rate = learning_rate
+        self.learning_rate = lr
         self.momentum = momentum
         self.clip_value = clip_value
         self.momentum_buffers = {}
@@ -41,9 +41,12 @@ class SGD(Optimizer):
 
             if self.momentum > 0:
                 buffer = self.momentum_buffers[id(param)]
+                if buffer.shape != param.data.shape:
+                    buffer = np.zeros_like(param.data)
+                    self.momentum_buffers[id(param)] = buffer
                 buffer = self.momentum * buffer - self.learning_rate * grad
-                param.data += buffer
                 self.momentum_buffers[id(param)] = buffer
+                param.data = param.data + buffer
             else:
                 param.data -= self.learning_rate * grad
 

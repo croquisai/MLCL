@@ -11,7 +11,7 @@ layer2 = Linear(8, 1)
 
 criterion = BinaryCrossEntropyLoss()
 optimizer = SGD([layer1.weights, layer1.bias, layer2.weights, layer2.bias], 
-               learning_rate=0.1,
+               lr=0.1,
                momentum=0.9,
                clip_value=1.0)
 
