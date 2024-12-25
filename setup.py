@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="mlcl",
-    version="0.1.0",
+    version="0.1.1",
     author="cappuch",
     author_email="ilovevisualstudiocode@gmail.com",
     description="A lightweight deep learning framework with cross-platform GPU acceleration using OpenCL.",
