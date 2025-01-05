@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Neural Network to HDL Demo</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #ffffff;
+            --editor-bg: #1e1e1e;
+            --editor-border: #333333;
+            --button-bg: #007bff;
+            --button-hover: #0056b3;
+            --doc-bg: #1e1e1e;
+            --code-bg: #2d2d2d;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #ffffff;
+            --text-color: #121212;
+            --editor-bg: #f8f8f8;
+            --editor-border: #ddd;
+            --button-bg: #007bff;
+            --button-hover: #0056b3;
+            --doc-bg: #f8f9fa;
+            --code-bg: #e9ecef;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .editor-container {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .code-editor, .hdl-preview {
+            flex: 1;
+            min-width: 400px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            font-family: monospace;
+            padding: 10px;
+            border: 1px solid var(--editor-border);
+            background: var(--editor-bg);
+            font-size: 14px;
+            color: var(--text-color);
+            transition: all 0.3s;
+        }
+
+        pre {
+            height: 300px;
+            overflow: auto;
+            background: var(--editor-bg);
+            padding: 10px;
+            border: 1px solid var(--editor-border);
+            font-size: 14px;
+            color: var(--text-color);
+            transition: all 0.3s;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: var(--button-bg);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background: var(--button-hover);
+        }
+
+        .documentation {
+            background: var(--doc-bg);
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            transition: background-color 0.3s;
+        }
+
+        .documentation h3 {
+            margin-top: 0;
+        }
+
+        .documentation code {
+            background: var(--code-bg);
+            padding: 2px 4px;
+            border-radius: 3px;
+            transition: background-color 0.3s;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background: var(--button-bg);
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+    
+    <h1>MLCL</h1>
+    
+    <div class="documentation">
+        <h3>About MLCL</h3>
+        <p>MLCL is a lightweight deep learning framework with cross-platform GPU acceleration using OpenCL. It is designed to be easy to use while providing a high level of control over the GPU. MLCL is built on top of the <a href="https://documen.tician.de/pyopencl/" target="_blank">PyOpenCL</a> library.</p>
+        
+        <h4>Key Features</h4>
+        <ul>
+            <li>Cross-platform GPU acceleration</li>
+            <li>Automatic differentiation</li>
+            <li>Model saving and loading</li>
+            <li>Built-in HDL conversion for FPGAs and ASICs (testing below)</li>
+            <li>Streaming datasets for slower GPUs</li>
+        </ul>
+
+        <h3>What's this below?</h3>
+        <p>This is a demo of the Model-To-HDL pipeline implemented in MLCL. The HDL generation process is designed to create efficient hardware implementations that can be synthesized for FPGAs or ASICs.</p>
+        
+        <h4>Supported Syntax</h4>
+        <ul>
+            <li><code>Linear(in_features, out_features)</code> - Creates a fully connected layer</li>
+            <li>One layer per line</li>
+            <li>Example:
+                <pre>
+Linear(2, 8)
+Linear(8, 1)
+                </pre>
+            </li>
+        </ul>
+    </div>
+    <div class="editor-container">
+        <div class="code-editor">
+            <h3>Model Definition</h3>
+            <textarea id="model-code" spellcheck="false">
+Linear(2, 8)
+Linear(8, 1)
+            </textarea>
+        </div>
+        <div class="hdl-preview">
+            <h3>Generated HDL</h3>
+            <pre id="hdl-preview"></pre>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button onclick="updateHDLPreview()">Generate HDL</button>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const body = document.body;
+            const theme = body.getAttribute('data-theme');
+            const newTheme = theme === 'dark' ? 'light' : 'dark';
+            body.setAttribute('data-theme', newTheme);
+            document.querySelector('.theme-toggle').textContent = newTheme === 'dark' ? '🌙' : '☀️';
+        }
+
+        class HDLGenerator {
+            constructor(moduleName, inputWidth = 32, outputWidth = 32) {
+                this.moduleName = moduleName;
+                this.inputWidth = inputWidth;
+                this.outputWidth = outputWidth;
+                this.parameters = {};
+                this.ports = {};
+                this.internalSignals = [];
+                this.assignments = [];
+                this.alwaysBlocks = [];
+            }
+            addParameter(name, value) {
+        this.parameters[name] = value;
+    }
+
+            addPort(name, direction, width = null) {
+                if (!['input', 'output'].includes(direction)) {
+                    throw new Error(`Invalid port direction: ${direction}`);
+                }
+                this.ports[name] = { direction, width };
+            }
+
+            generateHDL() {
+                let hdl = [];
+
+                hdl.push(`module ${this.moduleName} (`);
+
+                const portDeclarations = Object.entries(this.ports).map(([name, port]) => {
+                    let parts = [port.direction];
+                    if (port.width) {
+                        parts.push(`[${port.width}-1:0]`);
+                    }
+                    parts.push(name);
+                    return parts.join(' ');
+                });
+                hdl.push(portDeclarations.join(',\n    '));
+                hdl.push(');');
+
+                this.internalSignals.forEach(signal => {
+                    hdl.push(`wire ${signal.width ? `[${signal.width}-1:0] ` : ''}${signal.name};`);
+                });
+
+                this.assignments.forEach(assignment => {
+                    hdl.push(`assign ${assignment};`);
+                });
+
+                this.alwaysBlocks.forEach(block => {
+                    hdl.push(block);
+                });
+                
+                hdl.push('endmodule');
+                return hdl.join('\n');
+            }
+        }
+
+        class LinearHDL extends HDLGenerator {
+            constructor(weights, biases, inputWidth = 32, outputWidth = 32) {
+                super('linear_layer', inputWidth, outputWidth);
+                this.weights = weights;
+                this.biases = biases;
+                this.generateLogic();
+            }
+
+            generateLogic() {
+                const inFeatures = this.weights[0].length;
+                const outFeatures = this.weights.length;
+
+                this.addParameter('IN_FEATURES', inFeatures);
+                this.addParameter('OUT_FEATURES', outFeatures);
+                this.addParameter('DATA_WIDTH', this.inputWidth);
+
+                this.addPort('clk', 'input');
+                this.addPort('rst', 'input');
+                this.addPort('input_valid', 'input');
+                this.addPort('input_data', 'input', `DATA_WIDTH*IN_FEATURES`);
+                this.addPort('output_valid', 'output');
+                this.addPort('output_data', 'output', `DATA_WIDTH*OUT_FEATURES`);
+
+                this.weights.forEach((weights, i) => {
+                    this.addParameter(`WEIGHTS_${i}`, `{${weights.join(', ')}}`);
+                    if (this.biases) {
+                        this.addParameter(`BIAS_${i}`, this.biases[i]);
+                    }
+                });
+
+                this.weights.forEach((weights, i) => {
+                    const terms = weights.map((w, j) => 
+                        `input_data[${j}*DATA_WIDTH +: DATA_WIDTH] * WEIGHTS_${i}[${j}]`
+                    ).join(' + ');
+                    
+                    let assignment = `output_data[${i}*DATA_WIDTH +: DATA_WIDTH] = ${terms}`;
+                    if (this.biases) {
+                        assignment += ` + BIAS_${i}`;
+                    }
+                    this.assignments.push(assignment);
+                });
+            }
+        }
+
+        function parseModelDefinition(code) {
+            const lines = code.split('\n').filter(line => line.trim() !== '');
+            const model = [];
+            
+            lines.forEach(line => {
+                if (line.startsWith('Linear')) {
+                    const match = line.match(/Linear\((\d+),\s*(\d+)\)/);
+                    if (!match) throw new Error('Invalid Linear layer format');
+                    const inFeatures = parseInt(match[1]);
+                    const outFeatures = parseInt(match[2]);
+                    model.push({
+                        type: 'Linear',
+                        inFeatures,
+                        outFeatures,
+                        weights: Array(outFeatures).fill().map(() => 
+                            Array(inFeatures).fill().map(() => Math.random())
+                        ),
+                        bias: Array(outFeatures).fill().map(() => Math.random())
+                    });
+                } else {
+                    throw new Error(`Unknown layer type: ${line}`);
+                }
+            });
+            
+            return model;
+        }
+
+        function generateModelHDL(model) {
+            const hdlFiles = [];
+            model.forEach((layer, i) => {
+                if (layer.type === 'Linear') {
+                    const hdl = new LinearHDL(layer.weights, layer.bias);
+                    hdlFiles.push(`// Layer ${i}\n${hdl.generateHDL()}\n`);
+                }
+            });
+            return hdlFiles.join('\n');
+        }
+        function updateHDLPreview() {
+            const code = document.getElementById('model-code').value;
+            try {
+                const model = parseModelDefinition(code);
+                const hdlCode = generateModelHDL(model);
+                document.getElementById('hdl-preview').textContent = hdlCode;
+            } catch (error) {
+                document.getElementById('hdl-preview').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        updateHDLPreview();
+        document.body.setAttribute('data-theme', 'dark');
+    </script>
+</body>
+</html>
