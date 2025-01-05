@@ -1,5 +1,6 @@
 import os
 from typing import List, Dict, Type, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..nn.layers import Linear, Conv2D
 from .layers import LinearHDL, Conv2DHDL
 from .generator import HDLGenerator
@@ -49,30 +50,30 @@ class ModelToHDLPipeline:
             generator.module_name = name
             
         return generator
-    
+
     def convert_model(self, model: List[object], model_name: str = "neural_network") -> List[str]:
-        """
-        Convert an entire model to HDL.
-        
-        Args:
-            model: List of layer instances
-            model_name: Name for the top-level module
-            
-        Returns:
-            List of generated HDL file paths
-        """
-        
         hdl_files = []
         layer_modules = []
-        
-        for i, layer in enumerate(model):
-            layer_name = f"{model_name}_layer_{i}"
-            generator = self.convert_layer(layer, layer_name)
 
-            hdl_path = os.path.join(self.output_dir, f"{layer_name}.v")
-            generator.write_to_file(hdl_path)
-            hdl_files.append(hdl_path)
-            layer_modules.append(generator)
+        with ThreadPoolExecutor() as executor:
+            future_to_layer = {
+                executor.submit(self.convert_layer, layer, f"{model_name}_layer_{i}"): i 
+                for i, layer in enumerate(model)
+            }
+            
+            for future in as_completed(future_to_layer):
+                i = future_to_layer[future]
+                try:
+                    generator = future.result()
+                    hdl_path = os.path.join(self.output_dir, f"{model_name}_layer_{i}.v")
+                    generator.write_to_file(hdl_path)
+                    hdl_files.append(hdl_path)
+                    layer_modules.append((i, generator))
+                except Exception as e:
+                    print(f"Error converting layer {i}: {str(e)}")
+                    raise
+
+        layer_modules = [gen for _, gen in sorted(layer_modules)]
 
         top_module = self._generate_top_module(model_name, layer_modules)
         top_path = os.path.join(self.output_dir, f"{model_name}_top.v")
@@ -81,6 +82,7 @@ class ModelToHDLPipeline:
         hdl_files.append(top_path)
         
         return hdl_files
+
     
     def _generate_top_module(self, model_name: str, layer_modules: List[HDLGenerator]) -> str:
         """Generate top-level module that connects all layers."""

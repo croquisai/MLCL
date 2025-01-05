@@ -2,3 +2,4 @@ pyopencl
 siphash24
 numba
 numpy
+# latest versions of all libraries bascially. handy enough

@@ -91,7 +91,6 @@ class HDLGenerator(ABC):
             return f"[{width}-1:0]"
         
     def generate_hdl(self) -> str:
-        """Generate the complete HDL code for the module."""
         self.generate_logic()
 
         hdl = []
@@ -103,33 +102,22 @@ class HDLGenerator(ABC):
 
         ports = []
         for name, port in self.ports.items():
-            port_str = f"{port['direction']} "
+            port_parts = [port['direction']]
             if 'width' in port:
-                port_str += f"{self._format_width(port['width'])} "
-            port_str += name
-            ports.append(port_str)
+                port_parts.append(self._format_width(port['width']))
+            port_parts.append(name)
+            ports.append(" ".join(port_parts))
 
-        hdl.insert(0, f"module {self.module_name}")
-        if self.parameters:
-            port_str = ",\n    ".join(ports)
-            hdl.append(f"(\n    {port_str}\n);")
-        else:
-            hdl.append(f"({', '.join(ports)});")
-
-        for signal in self.internal_signals:
-            signal_str = "wire "
-            if 'width' in signal:
-                signal_str += f"{self._format_width(signal['width'])} "
-            signal_str += f"{signal['name']};"
-            hdl.append(signal_str)
-
-        hdl.extend(self.assignments)
-
-        hdl.extend(self.always_blocks)
-
-        hdl.append("endmodule")
-        
-        return "\n".join(hdl)
+        return "\n".join([
+            f"module {self.module_name}",
+            *([f"#(\n    {param_str}\n)"] if self.parameters else []),
+            f"({', '.join(ports)});",
+            *[f"wire {self._format_width(s['width']) if 'width' in s else ''} {s['name']};" 
+            for s in self.internal_signals],
+            *self.assignments,
+            *self.always_blocks,
+            "endmodule"
+        ])
         
     def write_to_file(self, filename: str) -> None:
         """Write the generated HDL to a file."""

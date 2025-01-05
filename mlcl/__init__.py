@@ -15,7 +15,7 @@ __nn__ = ['Tensor', 'MatMul', 'Linear', 'Conv2D', 'BatchNorm1D', 'sigmoid', 'MSE
            'BinaryCrossEntropyLoss', 'MAELoss', 'Loss', 'Optimizer', 'SGD', 'DataLoader',
            'opencl_manager', 'ops_manager', 'relu', 'tanh', 'OpenCLManager', 'ModelIO', 'ModelToHDLPipeline']
 
-__activations__ = ['sigmoid', 'relu', 'tanh']
+__activations__ = ['sigmoid', 'relu', 'tanh', 'leaky_relu', 'elu', 'selu', 'softplus']
 
 __loss__ = ['MSELoss', 'CrossEntropyLoss', 'BinaryCrossEntropyLoss', 'MAELoss', 'Loss']
 
