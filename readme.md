@@ -1,26 +1,20 @@
 # MLCL
 
-⚠️ **Warning**: MLCL is currently in early development and is not recommended for production use. The API is highly unstable and may change significantly between versions. Use at your own risk!
-
-![MLCL Logo](assets/logo.png)
-
-MLCL is a OpenCL-focused machine learning library with the following design goals:
-- Small install size
-- Easy to use
-- Fast
-- Flexible
-- OpenCL-based for GPU acceleration
-- JIT for CPUs (if OpenCL isn't supported!)
-
-Also features a highly experimental HDL generator that can convert a MLCL model into Verilog. (FPGA-friendly architecture!)
+MLCL is a lightweight deep learning framework with cross-platform GPU acceleration using OpenCL. It is designed to be easy to use and to provide a high level of control over the GPU. MLCL is built on top of the [PyOpenCL](https://documen.tician.de/pyopencl/) library.
 
 ## Installation
-
-For now, you will need to pull the repository and run `pip install .` from the root directory.
-
 ```bash
-git clone https://github.com/rndmcoolawsmgrbg/MLCL.git
+git clone https://github.com/open-gpgpu/MLCL.git
 cd MLCL
-pip install .
+pip install -e .
 ```
 
+## Usage
+Documentation is available at [docs](/docs.md).
+
+## Contributing
+Contributions are welcome! Please see [CONTRIBUTING.md](/CONTRIBUTING.md) for more information.
+
+## License
+MLCL is licensed under the [GNU General Public License v3.0](/LICENSE).
+(that practically means, you can use it for commercial purposes, but you have to give me credit and you can't sell it)

@@ -65,67 +65,33 @@ Implements the hyperbolic tangent activation function
 - Accelerated implementation
 - Supports automatic differentiation
 
-### Loss Functions
-
-#### `MSELoss`
-Mean Squared Error loss function: L = (1/n)Σ(y_pred - y_true)²
-- Suitable for regression problems
-- Computes gradients for backpropagation
-
-#### `CrossEntropyLoss`
-Cross-entropy loss for multi-class classification
-- Expects input as probabilities (after softmax)
-- Handles numerical stability with epsilon parameter
+#### `leaky_relu`
+Implements Leaky ReLU activation function: f(x) = x if x > 0 else αx
 - Parameters:
-  - `epsilon`: Small constant to avoid log(0) (default: 1e-15)
+  - `alpha`: Slope for negative values (default: 0.01)
+- Accelerated implementation
+- Supports automatic differentiation
 
-#### `BinaryCrossEntropyLoss`
-Binary cross-entropy loss for binary classification
-- Suitable for binary classification problems
-- Handles numerical stability
+#### `elu`
+Implements Exponential Linear Unit: f(x) = x if x > 0 else α(e^x - 1)
 - Parameters:
-  - `epsilon`: Small constant to avoid log(0) (default: 1e-15)
+  - `alpha`: Scale for negative values (default: 1.0)
+- Accelerated implementation
+- Supports automatic differentiation
 
-#### `MAELoss`
-Mean Absolute Error loss: L = (1/n)Σ|y_pred - y_true|
-- Alternative to MSE for regression
-- Less sensitive to outliers
-
-### Optimizers
-
-#### `Optimizer`
-Base class for all optimizers
-- Provides common functionality for parameter updates
-- Implements gradient zeroing
-
-#### `SGD`
-Stochastic Gradient Descent optimizer with momentum
+#### `selu`
+Implements Scaled Exponential Linear Unit
+- Self-normalizing properties
 - Parameters:
-  - `parameters`: List of parameters to optimize
-  - `learning_rate`: Learning rate (default: 0.01)
-  - `momentum`: Momentum factor (default: 0.9)
-  - `clip_value`: Gradient clipping threshold (default: 1.0)
-- Features:
-  - Momentum for faster convergence
-  - Gradient clipping to prevent exploding gradients
+  - `alpha`: Scale for negative values (default: 1.67326324)
+  - `scale`: Scale factor (default: 1.05070098)
+- Accelerated implementation
+- Supports automatic differentiation
 
-## HDL Generation
-
-MLCL features a highly experimental HDL generator that can convert a MLCL model into Verilog. (FPGA-friendly architecture!)
-
-To use the HDL generator, you can use the `ModelToHDLPipeline` class.
-
-```python
-from mlcl.nn.layers import Linear
-from mlcl.hdl import ModelToHDLPipeline
-
-model = [
-    Linear(2, 8),
-    Linear(8, 1)
-]
-
-pipeline = ModelToHDLPipeline(output_dir="hdl_out")
-hdl_files = pipeline.convert_model(model, model_name="showcase")
-```
-
-Please note that this is a highly experimental feature and the output may not be fully functional. (Which it probably won't be for a while)
+#### `softplus`
+Implements Softplus activation: f(x) = ln(1 + e^x)
+- Smooth approximation of ReLU
+- Parameters:
+  - `beta`: Smoothing factor (default: 1.0)
+- Accelerated implementation
+- Supports automatic differentiation

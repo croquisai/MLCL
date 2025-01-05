@@ -97,3 +97,42 @@ __kernel void divide_kernel(__global const float* a,
     const float denominator = b[gid];
     output[gid] = (denominator != 0.0f) ? (a[gid] / denominator) : INFINITY;
 } 
+
+__kernel void leaky_relu_kernel(__global const float* input,
+                              __global float* output,
+                              const float alpha,
+                              const unsigned int n) {
+    const size_t gid = get_global_id(0);
+    if (gid >= n) return;
+    const float val = input[gid];
+    output[gid] = val > 0.0f ? val : (alpha * val);
+}
+
+__kernel void elu_kernel(__global const float* input,
+                        __global float* output,
+                        const float alpha,
+                        const unsigned int n) {
+    const size_t gid = get_global_id(0);
+    if (gid >= n) return;
+    const float val = input[gid];
+    output[gid] = val > 0.0f ? val : (alpha * (exp(val) - 1.0f));
+}
+
+__kernel void selu_kernel(__global const float* input,
+                         __global float* output,
+                         const float alpha,
+                         const float scale,
+                         const unsigned int n) {
+    const size_t gid = get_global_id(0);
+    if (gid >= n) return;
+    const float val = input[gid];
+    output[gid] = scale * (val > 0.0f ? val : (alpha * (exp(val) - 1.0f)));
+}
+
+__kernel void softplus_kernel(__global const float* input,
+                            __global float* output,
+                            const unsigned int n) {
+    const size_t gid = get_global_id(0);
+    if (gid >= n) return;
+    output[gid] = log1p(exp(input[gid]));
+}

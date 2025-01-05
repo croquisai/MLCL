@@ -12,9 +12,8 @@ layer2 = Linear(8, 1)
 
 criterion = BinaryCrossEntropyLoss()
 optimizer = SGD([layer1.weights, layer1.bias, layer2.weights, layer2.bias], 
-               lr=0.1,
-               momentum=0.9,
-               clip_value=1.0)
+               lr=0.001,
+               momentum=0.9, clip_value=0.85)
 
 start_time = time.time()
 for epoch in range(1000):
