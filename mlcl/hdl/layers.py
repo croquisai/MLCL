@@ -35,18 +35,27 @@ class LinearHDL(HDLGenerator):
         self.add_port("clk", "input")
         self.add_port("rst", "input")
         self.add_port("input_valid", "input")
-        self.add_port("input_data", "input", width=f"DATA_WIDTH*IN_FEATURES")
+        self.add_port("input_data", "input", f"DATA_WIDTH*IN_FEATURES")
         self.add_port("output_valid", "output")
-        self.add_port("output_data", "output", width=f"DATA_WIDTH*OUT_FEATURES")
+        self.add_port("output_data", "output", f"DATA_WIDTH*OUT_FEATURES")
         
         if self.use_pipeline:
             self.add_internal_signal("pipeline_valid", width=3)
             self.add_internal_signal("accumulator", width=f"DATA_WIDTH*OUT_FEATURES")
             
-        for i in range(out_features):
-            weights_str = ", ".join([f"{w:.6f}" for w in self.weights[:, i]])
-            self.add_parameter(f"WEIGHTS_{i}", f"'{{{weights_str}}}")
-            if self.bias is not None:
+        weights_params = [
+            f"WEIGHTS_{i}" for i in range(out_features)
+        ]
+        weights_values = [
+            f"'{{{', '.join(f'{w:.6f}' for w in self.weights[:, i])}}}"
+            for i in range(out_features)
+        ]
+        
+        for name, value in zip(weights_params, weights_values):
+            self.add_parameter(name, value)
+        
+        if self.bias is not None:
+            for i in range(out_features):
                 self.add_parameter(f"BIAS_{i}", f"{self.bias[i]:.6f}")
                 
         if self.use_pipeline:

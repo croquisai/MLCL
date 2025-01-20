@@ -136,3 +136,19 @@ __kernel void softplus_kernel(__global const float* input,
     if (gid >= n) return;
     output[gid] = log1p(exp(input[gid]));
 }
+
+__kernel void vectorized_exp(__global float4* input,
+                           __global float4* output,
+                           const unsigned int n) {
+    const size_t gid = get_global_id(0);
+    if (gid * 4 >= n) return;
+    output[gid] = exp(input[gid]);
+}
+
+__kernel void vectorized_tanh(__global float4* input,
+                            __global float4* output,
+                            const unsigned int n) {
+    const size_t gid = get_global_id(0);
+    if (gid * 4 >= n) return;
+    output[gid] = tanh(input[gid]);
+}

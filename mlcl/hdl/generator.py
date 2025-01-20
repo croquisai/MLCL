@@ -92,32 +92,32 @@ class HDLGenerator(ABC):
         
     def generate_hdl(self) -> str:
         self.generate_logic()
-
-        hdl = []
-
+        
+        parts = []
+        
         if self.parameters:
-            params = [f"parameter {name} = {value}" for name, value in self.parameters.items()]
-            param_str = ",\n    ".join(params)
-            hdl.append(f"#(\n    {param_str}\n)")
-
-        ports = []
+            param_parts = [f"parameter {name} = {value}" for name, value in self.parameters.items()]
+            parts.append(f"#(\n    {','.join(param_parts)}\n)")
+        
+        port_parts = []
         for name, port in self.ports.items():
-            port_parts = [port['direction']]
+            port_str = [port['direction']]
             if 'width' in port:
-                port_parts.append(self._format_width(port['width']))
-            port_parts.append(name)
-            ports.append(" ".join(port_parts))
-
-        return "\n".join([
+                port_str.append(self._format_width(port['width']))
+            port_str.append(name)
+            port_parts.append(" ".join(port_str))
+        
+        parts.extend([
             f"module {self.module_name}",
-            *([f"#(\n    {param_str}\n)"] if self.parameters else []),
-            f"({', '.join(ports)});",
+            f"({', '.join(port_parts)});",
             *[f"wire {self._format_width(s['width']) if 'width' in s else ''} {s['name']};" 
-            for s in self.internal_signals],
+              for s in self.internal_signals],
             *self.assignments,
             *self.always_blocks,
             "endmodule"
         ])
+        
+        return "\n".join(parts)
         
     def write_to_file(self, filename: str) -> None:
         """Write the generated HDL to a file."""

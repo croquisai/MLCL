@@ -13,12 +13,21 @@ class OpenCLOps:
     
     def exp(self, x: np.ndarray) -> np.ndarray:
         output = np.empty_like(x)
-        x_buf = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=x)
-        out_buf = cl.Buffer(self.ctx, cl.mem_flags.WRITE_ONLY, output.nbytes)
+        pad_size = (4 - (x.size % 4)) % 4
+        padded_size = x.size + pad_size
         
-        self.math_program.exp_kernel(self.queue, (x.size,), None, x_buf, out_buf, np.uint32(x.size))
-        cl.enqueue_copy(self.queue, output, out_buf)
-        return output
+        padded_x = np.pad(x.ravel(), (0, pad_size), mode='constant')
+        x_buf = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=padded_x)
+        out_buf = cl.Buffer(self.ctx, cl.mem_flags.WRITE_ONLY, padded_x.nbytes)
+        
+        self.math_program.vectorized_exp(
+            self.queue, (padded_size // 4,), None, 
+            x_buf, out_buf, np.uint32(x.size)
+        )
+        
+        padded_output = np.empty(padded_size, dtype=np.float32)
+        cl.enqueue_copy(self.queue, padded_output, out_buf)
+        return padded_output[:x.size].reshape(x.shape)
     
     def log(self, x: np.ndarray) -> np.ndarray:
         output = np.empty_like(x)

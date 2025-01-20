@@ -26,8 +26,14 @@ class ModelToHDLPipeline:
         self.output_dir = output_dir
         self.input_width = input_width
         self.output_width = output_width
+        self.layer_cache = {}
         os.makedirs(output_dir, exist_ok=True)
         
+    def _get_layer_key(self, layer: object) -> str:
+        if isinstance(layer, Linear):
+            return f"linear_{layer.weights.shape[0]}x{layer.weights.shape[1]}"
+        return None
+    
     def convert_layer(self, layer: object, name: Optional[str] = None) -> HDLGenerator:
         """
         Convert a single layer to HDL.
@@ -39,6 +45,13 @@ class ModelToHDLPipeline:
         Returns:
             HDLGenerator instance for the layer
         """
+        cache_key = self._get_layer_key(layer)
+        if cache_key and cache_key in self.layer_cache:
+            generator = self.layer_cache[cache_key]
+            if name:
+                generator.module_name = name
+            return generator
+            
         layer_type = type(layer)
         if layer_type not in self.LAYER_TO_GENERATOR:
             raise ValueError(f"Unsupported layer type: {layer_type}")
@@ -49,6 +62,8 @@ class ModelToHDLPipeline:
         if name:
             generator.module_name = name
             
+        if cache_key:
+            self.layer_cache[cache_key] = generator
         return generator
 
     def convert_model(self, model: List[object], model_name: str = "neural_network") -> List[str]:

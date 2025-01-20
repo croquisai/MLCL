@@ -17,49 +17,30 @@ class Linear:
         3D inputs (batch_size, seq_len, in_features).
         """
         self.input = x
-        input_shape = x.shape
-        
-        if len(input_shape) == 3:
-            batch_size, seq_len, _ = input_shape
-            x_2d = x.reshape(batch_size * seq_len, -1)
-            out = self.matmul.forward(x_2d, self.weights)
-            out = out.reshape(batch_size, seq_len, -1)
-            bias = self.bias.data.reshape(1, 1, -1)
-        else:
-            out = self.matmul.forward(x, self.weights)
-            bias = self.bias.data.reshape(1, -1)
+        batch_size = x.shape[0]
 
-        result = Tensor(out.data + bias + 1e-12, requires_grad=x.requires_grad)
-        self.output_before_bias = out
+        x_reshaped = x.data.reshape(-1, x.shape[-1])
+
+        out = x_reshaped @ self.weights.data + self.bias.data
+
+        result = Tensor(out.reshape(batch_size, -1), requires_grad=x.requires_grad)
         
         def _backward(grad):
             grad = np.clip(grad, -1e3, 1e3)
             
             if self.bias.requires_grad:
-                if len(input_shape) == 3:
-                    self.bias.grad = np.sum(grad, axis=(0, 1))
-                else:
-                    self.bias.grad = np.sum(grad, axis=0)
+                self.bias.grad = np.sum(grad, axis=0)
                 self.bias.grad = np.clip(self.bias.grad, -1e3, 1e3)
 
             if self.weights.requires_grad:
-                if len(input_shape) == 3:
-                    grad_2d = grad.reshape(-1, grad.shape[-1])
-                    input_2d = self.input.data.reshape(-1, self.input.shape[-1])
-                    self.weights.grad = input_2d.T @ grad_2d
-                else:
-                    self.weights.grad = self.input.data.T @ grad
+                self.weights.grad = x_reshaped.T @ grad
                 # Clip weight gradients
                 self.weights.grad = np.clip(self.weights.grad, -1e3, 1e3)
             
-            if self.input.requires_grad:
-                if len(input_shape) == 3:
-                    grad_2d = grad.reshape(-1, grad.shape[-1])
-                    input_grad = (grad_2d @ self.weights.data.T).reshape(*input_shape)
-                else:
-                    input_grad = grad @ self.weights.data.T
+            if x.requires_grad:
+                input_grad = grad @ self.weights.data.T
                 input_grad = np.clip(input_grad, -1e3, 1e3)
-                self.input.backward(input_grad)
+                x.backward(input_grad)
         
         result._backward = _backward
         return result
@@ -180,34 +161,43 @@ class Conv2D:
     def parameters(self):
         return [self.kernels, self.bias]
     
+    def _im2col(self, x: np.ndarray) -> np.ndarray:
+        N, C, H, W = x.shape
+        out_h = (H + 2*self.padding[0] - self.kernel_size[0]) // self.stride[0] + 1
+        out_w = (W + 2*self.padding[1] - self.kernel_size[1]) // self.stride[1] + 1
+        
+        x_padded = self._pad(x)
+        col = np.zeros((N, C, self.kernel_size[0], self.kernel_size[1], out_h, out_w))
+        
+        for y in range(self.kernel_size[0]):
+            y_max = y + self.stride[0] * out_h
+            for x in range(self.kernel_size[1]):
+                x_max = x + self.stride[1] * out_w
+                col[:, :, y, x, :, :] = x_padded[:, :, y:y_max:self.stride[0], x:x_max:self.stride[1]]
+        
+        col = col.transpose(0, 4, 5, 1, 2, 3).reshape(N * out_h * out_w, -1)
+        return col
+
     def forward(self, x):
         N, C, H, W = x.data.shape
         self.input_shape = x.data.shape
-
-        x_padded = self._pad(x.data)
-
-        H_out = (H + 2*self.padding[0] - self.kernel_size[0]) // self.stride[0] + 1
-        W_out = (W + 2*self.padding[1] - self.kernel_size[1]) // self.stride[1] + 1
-
-        out = np.zeros((N, self.out_channels, H_out, W_out))
-
-        for n in range(N):
-            for c_out in range(self.out_channels):
-                for h in range(H_out):
-                    for w in range(W_out):
-                        h_start = h * self.stride[0]
-                        w_start = w * self.stride[1]
-                        h_end = h_start + self.kernel_size[0]
-                        w_end = w_start + self.kernel_size[1]
-                        
-                        receptive_field = x_padded[n, :, h_start:h_end, w_start:w_end]
-                        out[n, c_out, h, w] = np.sum(receptive_field * self.kernels.data[c_out]) + self.bias.data[c_out]
         
+        out_h = (H + 2*self.padding[0] - self.kernel_size[0]) // self.stride[0] + 1
+        out_w = (W + 2*self.padding[1] - self.kernel_size[1]) // self.stride[1] + 1
+        
+        col = self._im2col(x.data)
+        kernel_col = self.kernels.data.reshape(self.out_channels, -1)
+        
+        out = kernel_col @ col.T
+        if self.bias is not None:
+            out += self.bias.data.reshape(-1, 1)
+        
+        out = out.reshape(self.out_channels, out_h, out_w, N).transpose(3, 0, 1, 2)
         result = Tensor(out, requires_grad=x.requires_grad)
         
         def _backward(grad):
             if x.requires_grad:
-                dx_padded = np.zeros_like(x_padded)
+                dx_padded = np.zeros_like(x.data)
             
             if self.kernels.requires_grad:
                 self.kernels.grad = np.zeros_like(self.kernels.data)
@@ -217,8 +207,8 @@ class Conv2D:
 
             for n in range(N):
                 for c_out in range(self.out_channels):
-                    for h in range(H_out):
-                        for w in range(W_out):
+                    for h in range(out_h):
+                        for w in range(out_w):
                             h_start = h * self.stride[0]
                             w_start = w * self.stride[1]
                             h_end = h_start + self.kernel_size[0]
@@ -226,11 +216,11 @@ class Conv2D:
                             
                             if x.requires_grad:
                                 dx_padded[n, :, h_start:h_end, w_start:w_end] += \
-                                    self.kernels.data[c_out] * grad[n, c_out, h, w]
+                                    self.kernels.data[c_out] * grad[c_out, h, w, n]
                             
                             if self.kernels.requires_grad:
                                 self.kernels.grad[c_out] += \
-                                    x_padded[n, :, h_start:h_end, w_start:w_end] * grad[n, c_out, h, w]
+                                    col[n * out_h * out_w + h * out_w + w] * grad[c_out, h, w, n]
             
             if x.requires_grad:
                 if self.padding[0] > 0 or self.padding[1] > 0:
